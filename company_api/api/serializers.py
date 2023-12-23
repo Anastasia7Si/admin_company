@@ -12,7 +12,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
 
 class DivisionReadSerializer(serializers.ModelSerializer):
-    """Сериализатор подразделения."""
+    """Сериализатор просмотра подразделения."""
     related_division = serializers.StringRelatedField()
     organization = serializers.CharField(source='organization.name')
 
@@ -22,7 +22,7 @@ class DivisionReadSerializer(serializers.ModelSerializer):
 
 
 class DivisionSerializer(serializers.ModelSerializer):
-    """Сериализатор подразделения."""
+    """Сериализатор создания подразделения."""
     class Meta:
         model = Division
         fields = ('id', 'name', 'related_division', 'organization')
@@ -34,8 +34,7 @@ class DivisionSerializer(serializers.ModelSerializer):
 
 
 class PositionPermissionSerializer(serializers.ModelSerializer):
-    """Сериализатор прав должности."""
-
+    """Сериализатор создания прав должности."""
     class Meta:
         model = PositionPermission
         fields = ('id', 'position', 'permission')
@@ -43,23 +42,21 @@ class PositionPermissionSerializer(serializers.ModelSerializer):
 
 class PositionReadSerializer(serializers.ModelSerializer):
     """Сериализатор просмотра должности."""
-    division = serializers.StringRelatedField()
+    division = serializers.SerializerMethodField()
 
     class Meta:
         model = Position
         fields = ('name', 'division')
 
+    def get_division(self, obj):
+        return obj.division.name
+
 
 class PositionSerializer(serializers.ModelSerializer):
-    """Сериализатор должности."""
-
+    """Сериализатор создания должности."""
     class Meta:
         model = Position
         fields = ('id', 'name', 'division')
-
-    def create(self, validated_data):
-        position = Position.objects.create(**validated_data)
-        return position
 
     def to_representation(self, instance):
         request = self.context.get('request')
@@ -68,12 +65,17 @@ class PositionSerializer(serializers.ModelSerializer):
 
 
 class PermissionReadSerializer(serializers.ModelSerializer):
-    """Сериализатор прав."""
-    positions = PositionReadSerializer(many=True)
+    """Сериализатор просмотра прав."""
+    positions = serializers.SerializerMethodField()
 
     class Meta:
         model = Permission
         fields = ('name', 'positions')
+
+    def get_positions(self, obj):
+        positions = obj.positions.all()
+        serializer = PositionReadSerializer(positions, many=True)
+        return serializer.data
 
 
 class PermissionSerializer(serializers.ModelSerializer):
@@ -111,15 +113,15 @@ class EmployeeReadSerializer(serializers.ModelSerializer):
         fields = ('first_name', 'last_name', 'position', 'organization')
 
     def get_position(self, obj):
-        position_name = obj.position.first().name
-        division_name = obj.position.first().division.name
-        return f'{position_name} - {division_name}'
+        positions = obj.position.all().values('name', 'division__name')
+        return positions
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
     """Сериализатор создания сотрудника."""
     position = serializers.PrimaryKeyRelatedField(
-        queryset=Position.objects.all()
+        queryset=Position.objects.all(),
+        many=False
     )
 
     class Meta:
@@ -128,13 +130,44 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         position_data = validated_data.pop('position')
-        employee = Employee.objects.create(**validated_data)
+        try:
+            employee = Employee.objects.get(
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name']
+            )
+        except Employee.DoesNotExist:
+            employee = Employee.objects.create(**validated_data)
+        except KeyError:
+            employee = Employee.objects.create(**validated_data)
         position = Position.objects.get(id=position_data.id)
         EmployeePosition.objects.create(
             position=position, employee=employee
         )
         employee.position.add(position)
         return employee
+
+    def update(self, instance, validated_data):
+        position_data = validated_data.pop('position')
+        instance.first_name = validated_data.get(
+            'first_name', instance.first_name
+            )
+        instance.last_name = validated_data.get(
+            'last_name', instance.last_name
+            )
+        instance.save()
+        employee_position = EmployeePosition.objects.filter(
+            employee=instance
+            ).first()
+        if employee_position:
+            employee_position.position = position_data
+            employee_position.save()
+        else:
+            position = Position.objects.get(id=position_data.id)
+            EmployeePosition.objects.create(
+                position=position, employee=instance
+                )
+        instance.position.set([position_data])
+        return instance
 
     def to_representation(self, instance):
         request = self.context.get('request')
