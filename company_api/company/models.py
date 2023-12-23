@@ -45,7 +45,7 @@ class Division(models.Model):
     class Meta:
         ordering = ('name',)
         verbose_name = 'Подразделение'
-        verbose_name_plural = 'Подрязделения'
+        verbose_name_plural = 'Подразделения'
         constraints = [
             models.UniqueConstraint(fields=['name', 'related_division'],
                                     name='unique_name_related_division')
@@ -116,6 +116,11 @@ class PositionPermission(models.Model):
         on_delete=models.CASCADE
         )
 
+    class Meta:
+        ordering = ('position',)
+        verbose_name = 'Должностное прао'
+        verbose_name_plural = 'Должностные права'
+
     def __str__(self):
         return f'{self.position} - {self.permission}'
 
@@ -150,7 +155,7 @@ class Employee(models.Model):
         verbose_name_plural = 'Сотрудники'
 
     def __str__(self):
-        return f'{self.first_name} {self.last_name} - {self.position}'
+        return f'{self.first_name} {self.last_name}'
 
 
 class EmployeePosition(models.Model):
@@ -165,6 +170,11 @@ class EmployeePosition(models.Model):
         related_name='employee_positions',
         on_delete=models.CASCADE
         )
+
+    class Meta:
+        ordering = ('position',)
+        verbose_name = 'Должность сотрудника'
+        verbose_name_plural = 'Должности сотрудников'
 
     def __str__(self):
         return f'{self.employee} - {self.position}'
