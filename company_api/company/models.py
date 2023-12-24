@@ -118,7 +118,7 @@ class PositionPermission(models.Model):
 
     class Meta:
         ordering = ('position',)
-        verbose_name = 'Должностное прао'
+        verbose_name = 'Должностное право'
         verbose_name_plural = 'Должностные права'
 
     def __str__(self):
