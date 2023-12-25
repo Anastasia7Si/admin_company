@@ -145,26 +145,21 @@ class EmployeeSerializer(serializers.ModelSerializer):
         return employee
 
     def update(self, instance, validated_data):
-        position_data = validated_data.pop('position')
+        all_positions = instance.position.all()
+        updated_position = validated_data.pop('position')
         instance.first_name = validated_data.get(
             'first_name', instance.first_name
-            )
+        )
         instance.last_name = validated_data.get(
             'last_name', instance.last_name
             )
         instance.save()
-        employee_position = EmployeePosition.objects.filter(
-            employee=instance
-            ).first()
-        if employee_position:
-            employee_position.position = position_data
-            employee_position.save()
-        else:
-            position = Position.objects.get(id=position_data.id)
-            EmployeePosition.objects.create(
-                position=position, employee=instance
-                )
-        instance.position.set([position_data])
+
+        if updated_position:
+            if updated_position in all_positions:
+                instance.position.remove(updated_position)
+            else:
+                instance.position.add(updated_position)
         return instance
 
     def to_representation(self, instance):
