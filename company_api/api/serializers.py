@@ -137,8 +137,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
             )
         except Employee.DoesNotExist:
             employee = Employee.objects.create(**validated_data)
-        except KeyError:
-            employee = Employee.objects.create(**validated_data)
         position = Position.objects.get(id=position_data.id)
         EmployeePosition.objects.create(
             position=position, employee=employee
